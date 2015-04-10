@@ -4,7 +4,6 @@ import (
         "fmt"
         "net"
         "bufio"
-        "os"
         "strings"
 )
 
@@ -18,7 +17,7 @@ type user struct{
 
 type message struct {
 	dest chatroom
-	source user
+	source *user
 	message []byte	
 }
 
@@ -47,7 +46,7 @@ func (c *chatroom) part_room(u *user){
 	for j=0; j<len(u.rooms); i++ {
 		if u.rooms[j] == c { break }
 	}
-	fmt.Printf("User #%d parts %s\n", u.id, c.name)
+	fmt.Printf("User #%d departs %s\n", u.id, c.name)
 	
 	c.users = append(c.users[:i], c.users[i+1:]...)
 	u.rooms = append(u.rooms[:j], u.rooms[j+1:]...)
@@ -101,7 +100,6 @@ func handle_conn(conn net.Conn, cr *chatroom, id int){
        usr.channel = make(chan message, 25)
        defer part_all(&usr)
        //defer part_room: (cr.part)
-       f := bufio.NewWriter(os.Stdout)
        fmt.Println("Got connection #", id);
        cr.join_room(&usr)
        reader := bufio.NewReader(conn)
@@ -113,7 +111,6 @@ func handle_conn(conn net.Conn, cr *chatroom, id int){
       	  	if err != nil || err2 != nil{
       	  		break
       	  	}
-          	f.Flush()
        }		
 }
 
@@ -121,7 +118,9 @@ func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
 	for {
 		n:=false
 		buf, n, err := reader.ReadLine()
-      	if err != nil { break }
+      	if err != nil { 
+      		break 
+      	}
       	var msg message;
       	msg.dest=*cr;
       	msg.source=usr;
@@ -133,6 +132,10 @@ func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
 	    	cr.send_room(msg)
 	    }
      }
+	 fmt.Println("Broken out!")
+	 var msg message
+     msg.message = []byte("I'm not listening any more!")
+     usr.channel <- msg
 }
 
 func parse_input(line string, usr *user){
