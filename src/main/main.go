@@ -118,9 +118,7 @@ func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
 	for {
 		n:=false
 		buf, n, err := reader.ReadLine()
-      	if err != nil { 
-      		break 
-      	}
+      	if err != nil { break }
       	var msg message;
       	msg.dest=*cr;
       	msg.source=usr;
@@ -132,7 +130,9 @@ func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
 	    	cr.send_room(msg)
 	    }
      }
-	 fmt.Println("Broken out!")
+	 //We are no longer reading due to a read error
+	 //send a message to the conn_hanler to force an error on
+	 //write and a quick disconnection
 	 var msg message
      msg.message = []byte("I'm not listening any more!")
      usr.channel <- msg
