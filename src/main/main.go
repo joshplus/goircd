@@ -53,12 +53,12 @@ func (c *chatroom) part_room(u *user){
 	c.usercnt--;
 }
 
-func (c *chatroom) send_room(msg message){
+func (c *chatroom) send_room(msg *message){
 		fmt.Printf("%s(%d): %s\n", c.name, len(c.users),string(msg.message))
 		for _, usr := range c.users {
 			if usr.id != msg.source.id {
 				select {
-					case usr.channel <- msg:
+					case usr.channel <- *msg:
 					default:
 				}
 			}
@@ -124,10 +124,10 @@ func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
       	msg.source=usr;
       	msg.message=[]byte(buf)
       	if (!n) {
-    		cr.send_room(msg)
+    		cr.send_room(&msg)
       	} else {
       		fmt.Println("Message larger than buffer :-/ ")
-	    	cr.send_room(msg)
+	    	cr.send_room(&msg)
 	    }
      }
 	 //We are no longer reading due to a read error
