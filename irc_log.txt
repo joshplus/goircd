@@ -1,0 +1,87 @@
+
+Trying 199.189.86.110...
+Connected to irc.rr.afternet.org.
+Escape character is '^]'.
+NOTICE AUTH :*** Looking up your hostname
+NOTICE AUTH :*** Found your hostname
+PASS
+:Jaeger.US.AfterNET.Org 461 * PASS :Not enough parameters
+NICK Joshyouahh
+PING :2945290772
+PONG :2945290772
+USER josh josh localhost :Josh
+:Jaeger.US.AfterNET.Org 001 Joshyouahh :Welcome to the AfterNET IRC Network, Joshyouahh
+:Jaeger.US.AfterNET.Org 002 Joshyouahh :Your host is Jaeger.US.AfterNET.Org, running version u2.10.12.14+Nefarious(2.0.0)
+:Jaeger.US.AfterNET.Org 003 Joshyouahh :This server was created Sun Dec 14 2014 at 03:13:53 UTC
+:Jaeger.US.AfterNET.Org 004 Joshyouahh Jaeger.US.AfterNET.Org u2.10.12.14+Nefarious(2.0.0) adgiknoqswxzBDHLNORWX abCcDdhikLlMmNnOopQRrSsTtvZz bhkLlov
+:Jaeger.US.AfterNET.Org 005 Joshyouahh WHOX WALLCHOPS WALLHOPS WALLVOICES USERIP CPRIVMSG CNOTICE NAMESX UHNAMES SILENCE=25 WATCH=128 MODES=6 MAXCHANNELS=50 :are supported by this server
+:Jaeger.US.AfterNET.Org 005 Joshyouahh MAXBANS=50 NICKLEN=30 MAXNICKLEN=30 TOPICLEN=250 AWAYLEN=250 KICKLEN=250 CHANNELLEN=200 MAXCHANNELLEN=200 CHANTYPES=# PREFIX=(ohv)@%+ STATUSMSG=@%+ CHANMODES=be,k,Ll,aCcDdiMmNnOpQRrSsTtZz CASEMAPPING=rfc1459 :are supported by this server
+:Jaeger.US.AfterNET.Org 005 Joshyouahh NETWORK=AfterNET MAXLIST=b:50,e:45 ELIST=CT EXCEPTS=e MAXEXCEPTS=45 EXTBANS=~,acjnqrmM :are supported by this server
+:Jaeger.US.AfterNET.Org 251 Joshyouahh :There are 468 users and 377 invisible on 15 servers
+:Jaeger.US.AfterNET.Org 252 Joshyouahh 19 :operator(s) online
+:Jaeger.US.AfterNET.Org 254 Joshyouahh 348 :channels formed
+:Jaeger.US.AfterNET.Org 255 Joshyouahh :I have 64 clients and 1 servers
+:Jaeger.US.AfterNET.Org 265 Joshyouahh :Current local users: 64 Max: 150
+:Jaeger.US.AfterNET.Org 266 Joshyouahh :Current global users: 845 Max: 1055
+:Jaeger.US.AfterNET.Org NOTICE Joshyouahh :Highest connection count: 151 (150 clients)
+:Jaeger.US.AfterNET.Org 375 Joshyouahh :- Jaeger.US.AfterNET.Org Message of the Day - 
+:Jaeger.US.AfterNET.Org 372 Joshyouahh :See http://www.afternet.org for information about this network.
+:Jaeger.US.AfterNET.Org 372 Joshyouahh :Type /MOTD to read the AUP before continuing using this service.
+:Jaeger.US.AfterNET.Org 372 Joshyouahh :The message of the day was last changed: 2014-12-11 16:41
+:Jaeger.US.AfterNET.Org 376 Joshyouahh :End of /MOTD command.
+:Jaeger.US.AfterNET.Org NOTICE Joshyouahh :on 1 ca 1(6) ft 10(10)
+:Jaeger.US.AfterNET.Org 396 Joshyouahh AN-62B7754E.dc.dc.cox.net :is now your hidden host
+:Joshyouahh!josh@AN-62B7754E.dc.dc.cox.net MODE Joshyouahh +x
+
+
+
+Trying 38.229.70.22...
+Connected to chat.freenode.net.
+Escape character is '^]'.
+:card.freenode.net NOTICE * :*** Looking up your hostname...
+:card.freenode.net NOTICE * :*** Checking Ident
+:card.freenode.net NOTICE * :*** Found your hostname
+USER bobobob :card.freenode.net NOTICE * :*** No Ident response
+8 * : testuser
+NIC bobobob
+NICK bobobob
+:card.freenode.net 001 bobobob :Welcome to the freenode Internet Relay Chat Network bobobob
+:card.freenode.net 002 bobobob :Your host is card.freenode.net[38.229.70.22/6667], running version ircd-seven-1.1.3
+:card.freenode.net 003 bobobob :This server was created Thu Sep 18 2014 at 18:48:25 UTC
+:card.freenode.net 004 bobobob card.freenode.net ircd-seven-1.1.3 DOQRSZaghilopswz CFILMPQSbcefgijklmnopqrstvz bkloveqjfI
+:card.freenode.net 005 bobobob CHANTYPES=# EXCEPTS INVEX CHANMODES=eIbq,k,flj,CFLMPQScgimnprstz CHANLIMIT=#:120 PREFIX=(ov)@+ MAXLIST=bqeI:100 MODES=4 NETWORK=freenode KNOCK STATUSMSG=@+ CALLERID=g :are supported by this server
+:card.freenode.net 005 bobobob CASEMAPPING=rfc1459 CHARSET=ascii NICKLEN=16 CHANNELLEN=50 TOPICLEN=390 ETRACE CPRIVMSG CNOTICE DEAF=D MONITOR=100 FNC TARGMAX=NAMES:1,LIST:1,KICK:1,WHOIS:1,PRIVMSG:4,NOTICE:4,ACCEPT:,MONITOR: :are supported by this server
+:card.freenode.net 005 bobobob EXTBAN=$,ajrxz WHOX CLIENTVER=3.0 SAFELIST ELIST=CTU :are supported by this server
+:card.freenode.net 251 bobobob :There are 163 users and 83006 invisible on 26 servers
+:card.freenode.net 252 bobobob 22 :IRC Operators online
+:card.freenode.net 253 bobobob 3 :unknown connection(s)
+:card.freenode.net 254 bobobob 55676 :channels formed
+:card.freenode.net 255 bobobob :I have 5101 clients and 3 servers
+:card.freenode.net 265 bobobob 5101 8011 :Current local users 5101, max 8011
+:card.freenode.net 266 bobobob 83169 101901 :Current global users 83169, max 101901
+:card.freenode.net 250 bobobob :Highest connection count: 8015 (8011 clients) (3197723 connections received)
+:card.freenode.net 375 bobobob :- card.freenode.net Message of the Day - 
+:card.freenode.net 372 bobobob :-  
+:card.freenode.net 372 bobobob :- Welcome to card.freenode.net in Washington, DC, US, kindly sponsored by
+:card.freenode.net 372 bobobob :- Team Cymru (http://www.team-cymru.org).
+:card.freenode.net 372 bobobob :- of this server, details of which can be found above.
+:card.freenode.net 372 bobobob :-  
+:card.freenode.net 376 bobobob :End of /MOTD command.
+:bobobob MODE bobobob :+i
+JOIN #hashtagert
+:bobobob!~bobobob@ip72-192-252-12.dc.dc.cox.net JOIN #hashtagert
+:card.freenode.net MODE #hashtagert +ns
+:card.freenode.net 353 bobobob @ #hashtagert :@bobobob
+:card.freenode.net 366 bobobob #hashtagert :End of /NAMES list.
+:joshyouahh!~josh@ip72-192-252-12.dc.dc.cox.net JOIN #hashtagert
+PING :card.freenode.net
+PONG :card.freenode.net
+:joshyouahh!~josh@ip72-192-252-12.dc.dc.cox.net QUIT :Remote host closed the connection
+:joshyouahh!~josh@ip72-192-252-12.dc.dc.cox.net JOIN #hashtagert
+:joshyouahh!~josh@ip72-192-252-12.dc.dc.cox.net PRIVMSG #hashtagert :Hello, Josh
+PRIVMSG #hashtagert :Hi there
+QUIT TELNET4Evar
+:bobobob!~bobobob@ip72-192-252-12.dc.dc.cox.net QUIT :Quit: TELNET4Evar
+ERROR :Closing Link: ip72-192-252-12.dc.dc.cox.net (Quit: TELNET4Evar)
+Connection closed by foreign host.
+
