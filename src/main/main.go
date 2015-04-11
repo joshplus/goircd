@@ -182,7 +182,7 @@ func parse_input(line string, usr *user){
 	c := strings.ToLower(comstr[0]) //c == command
 	p1t := strings.SplitAfterN(comstr[1], " ", 1) //param 1
 	p1:=""; mb:=""
-	if len(p1t) > 0 {p1=strings.ToTitle(p1t[0])}
+	if len(p1t) > 0 {p1=strings.Trim(strings.ToTitle(p1t[0])," \r\n")}
 	mbt := strings.SplitAfterN(comstr[1], ":", 1) //message body
 	if len(mbt) > 1 {mb=mbt[1]}
 	switch c {
