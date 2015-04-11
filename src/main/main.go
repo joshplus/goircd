@@ -5,8 +5,11 @@ import (
         "net"
         "bufio"
         "strings"
+        "sync"
 )
 
+var room_list map[string] *chatroom
+var room_mutex sync.Mutex
 
 type user struct{
 	nickname string
@@ -28,8 +31,28 @@ type chatroom struct {
 	usercnt int
 }
 
+func join_room(name string, u *user) *chatroom{
+	room_mutex.Lock();
+	//if the room exists, join it otherwise create it
+	if room_list[name] == nil {
+		cr := chatroom{name: name}
+		cr.users = make([]user,0)
+		room_list[name]=&cr //save roomlist to map
+		cr.join_room(u)
+	} else {
+		room_list[name].join_room(u)
+	}
+	room_mutex.Unlock();
+	return room_list[name]
+}
+
+func part_room(name string, u *user){
+	if room_list[name] != nil{
+		room_list[name].part_room(u)
+	}
+}
+
 func (c *chatroom) join_room(u *user){
-	//may need a mutex
 	c.users = append(c.users, *u)
 	u.rooms = append(u.rooms, c)
 	fmt.Printf("User #%d joins %s\n", u.id, c.name)
@@ -40,21 +63,30 @@ func (c *chatroom) join_room(u *user){
 func (c *chatroom) part_room(u *user){
 	//may need a mutex
 	var i, j int
-	for i=0; i<len(c.users); i++ {
+	room_mutex.Lock();
+	for i=0; i<=len(c.users); i++ {
 		if c.users[i].id == u.id { break }
 	}
-	for j=0; j<len(u.rooms); i++ {
+	for j=0; j<=len(u.rooms); i++ {
 		if u.rooms[j] == c { break }
+	}
+	if i==len(c.users) || j==len(u.rooms){
+		//This user is not in this room
+		return
 	}
 	fmt.Printf("User #%d departs %s\n", u.id, c.name)
 	
 	c.users = append(c.users[:i], c.users[i+1:]...)
 	u.rooms = append(u.rooms[:j], u.rooms[j+1:]...)
 	c.usercnt--;
+	if c.usercnt == 0 {
+		delete(room_list,c.name)
+	}
+	room_mutex.Unlock();
 }
 
 func (c *chatroom) send_room(msg *message){
-		fmt.Printf("%s(%d): %s\n", c.name, len(c.users),string(msg.message))
+		fmt.Printf("%s(%d): %s\n", c.name, msg.source.id,string(msg.message))
 		for _, usr := range c.users {
 			if usr.id != msg.source.id {
 				select {
@@ -64,14 +96,23 @@ func (c *chatroom) send_room(msg *message){
 			}
 		}
 }
+func get_msg() message{
+	var msg message;
+	return msg;
+}
+func send_room(room string, usr *user, message string) {
+	room_mutex.Lock()
+	rl := room_list //make a local copy to be threadsafe
+	room_mutex.Unlock()
+	msg := get_msg()
+	msg.source=usr
+	msg.dest=*rl[room]
+	msg.message = []byte(message)
+	rl[room].send_room(&msg)
+}
 
 func main() {
-        //chan_handler := make (chan chanmsg, 10)
-        var cr chatroom
-        cr.name="Test"
-        cr.topic=[]byte("Test Topical")
-        //cr.users = make([]chan []byte, 0)
-        
+		room_list = make(map[string] *chatroom)
         service := "0.0.0.0:6000"
         tcpAddr, err := net.ResolveTCPAddr("tcp", service)
         checkError(err)
@@ -82,7 +123,7 @@ func main() {
                 conn, err := listener.Accept()
                 if err == nil {
                   fmt.Println("Connection OK!");
-                  go handle_conn(conn, &cr, id);
+                  go handle_conn(conn, id);
                 } else {
                   fmt.Println("Listener error. Sad day :-(\n");
                   conn.Close()
@@ -91,7 +132,7 @@ func main() {
         }
 }
 
-func handle_conn(conn net.Conn, cr *chatroom, id int){
+func handle_conn(conn net.Conn, id int){
        defer conn.Close()
        defer fmt.Println("Disconnected:", id);
        var usr user
@@ -99,11 +140,9 @@ func handle_conn(conn net.Conn, cr *chatroom, id int){
        usr.nickname=""
        usr.channel = make(chan message, 25)
        defer part_all(&usr)
-       //defer part_room: (cr.part)
        fmt.Println("Got connection #", id);
-       cr.join_room(&usr)
        reader := bufio.NewReader(conn)
-	   go handle_in_conn(&usr, cr, reader)
+	   go handle_in_conn(&usr, reader)
        for  {
       	  	imsg:= <- usr.channel
       	  	_, err := conn.Write(imsg.message)
@@ -114,20 +153,16 @@ func handle_conn(conn net.Conn, cr *chatroom, id int){
        }		
 }
 
-func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
+func handle_in_conn(usr *user, reader *bufio.Reader) {
 	for {
 		n:=false
 		buf, n, err := reader.ReadLine()
       	if err != nil { break }
-      	var msg message;
-      	msg.dest=*cr;
-      	msg.source=usr;
-      	msg.message=[]byte(buf)
       	if (!n) {
-    		cr.send_room(&msg)
+    		parse_input(string(buf), usr)
       	} else {
       		fmt.Println("Message larger than buffer :-/ ")
-	    	cr.send_room(&msg)
+	    	parse_input(string(buf), usr)
 	    }
      }
 	 //We are no longer reading due to a read error
@@ -139,15 +174,36 @@ func handle_in_conn(usr *user, cr *chatroom, reader *bufio.Reader) {
 }
 
 func parse_input(line string, usr *user){
-	comstr := strings.SplitAfterN(line, " ", 1)
+	comstr := strings.SplitAfterN(line, " ", 2)
+	if len(comstr) < 2 {
+		usr.channel <- message{message: []byte("Message too short")}
+		return
+	}
 	c := strings.ToLower(comstr[0]) //c == command
+	p1t := strings.SplitAfterN(comstr[1], " ", 1) //param 1
+	p1:=""; mb:=""
+	if len(p1t) > 0 {p1=strings.ToTitle(p1t[0])}
+	mbt := strings.SplitAfterN(comstr[1], ":", 1) //message body
+	if len(mbt) > 1 {mb=mbt[1]}
 	switch c {
-		case "nick":
+		case "nick ":
 			usr.nickname=comstr[1]
-		case "join":
-			usr.nickname=comstr[1]
+		case "join ":
+			fmt.Printf("User %d has requested to join %s", usr.id, p1)			
+			join_room(p1, usr)
+		case "privmsg ":
+			send_room(p1, usr, fmt.Sprintf(":%s PRIVMSG %s\r\n", usr.nickname, mb))
+		case "topic ":
+		case "part ":
+			part_room(p1, usr)
+		case "names ":
+		case "notice ":
+			send_room(p1, usr, fmt.Sprintf(":%s NOTICE %s\r\n", usr.nickname, mb))
+		default: 
+			fmt.Printf("Don't know what to do with %s from '%s'\n", c, line)
 	}
 }
+
 
 func part_all(usr *user){
 	fmt.Printf("User #%d (in %d rooms) has disconnected!\n",usr.id, len(usr.rooms));
