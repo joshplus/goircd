@@ -12,6 +12,13 @@ import (
 var room_list map[string] *chatroom
 var room_mutex sync.Mutex
 var server_src user
+var nickserv chan nick_req
+
+type nick_req struct{
+	nick string
+	usr *user
+	retchan chan bool
+}
 
 type user struct{
 	nickname string
@@ -31,6 +38,27 @@ type chatroom struct {
 	topic string
 	users []user
 	usercnt int
+}
+
+func nick_service(){
+	var nick_reg map[string] *user
+	nickserv = make (chan nick_req, 0)
+	nick_reg = make (map[string] *user)
+	for {
+		req, ok := <- nickserv
+		if !ok {
+			fmt.Println("Nick service error!")
+			continue
+		}
+		if nick_reg[req.nick] == nil {
+			delete(nick_reg, req.usr.nickname)
+			nick_reg[req.nick]=req.usr
+			req.usr.nickname=req.nick
+			req.retchan <- true
+		} else {
+			req.retchan <- false
+		}
+	}
 }
 
 func join_room(name string, u *user) *chatroom{
@@ -125,6 +153,7 @@ func send_room(room string, usr *user, message string) {
 
 func main() {
 		room_list = make(map[string] *chatroom)
+		go nick_service()
 		server_src = user{nickname: "server.localhost", id: -1, channel: make (chan message)}
 		service := "0.0.0.0:6000"
         tcpAddr, err := net.ResolveTCPAddr("tcp", service)
@@ -200,13 +229,15 @@ func parse_input(line string, usr *user){
 	if len(mbt) > 1 {mb=mbt[1]}
 	switch c {
 		case "nick ":
-			if (p1 != ""){
+			if (p1 == "") {break}
+			if (change_nick(usr, p1)){
 				m := message {source: &server_src, message: []byte(fmt.Sprintf(":%s!server NICK %s\r\n", usr.nickname, p1))}
 				if usr.nickname!="" { usr.channel <- m }
 				for _, x := range usr.rooms {
 					x.send_room(&m)
 				}
-				usr.nickname=comstr[1]
+			} else {
+				server_msg(usr, "433", ":Nickname already in use");
 			}
 		case "privmsg ":
 			send_room(p1, usr, fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, p1, mb))
@@ -290,11 +321,20 @@ func parse_input(line string, usr *user){
 			send_room(p1, usr, fmt.Sprintf(":%s NOTICE %s :%s\r\n", usr.nickname, p1, mb))
 		case "explode ": 
 			if p1 == "Please" { os.Exit(0) }
-		case "quit ":
+		case "quit ","quit":
 			close(usr.channel)
 		default: 
 			fmt.Printf("Don't know what to do with %s from '%s'\n", c, line)
 	}
+}
+
+func change_nick(usr *user, nick string) bool{
+	var r nick_req
+	r.nick=nick
+	r.usr = usr
+	r.retchan = make (chan bool)
+	nickserv <- r
+	return <- r.retchan;
 }
 
 func server_msg(usr *user, code string, message string){
