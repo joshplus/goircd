@@ -18,12 +18,14 @@ type nick_req struct{
 	nick string
 	usr *user
 	retchan chan bool
+	uchan chan *user
+	search bool
 }
 
 type user struct{
 	nickname string
 	id int
-	rooms []*chatroom
+	rooms []*chatroom 
 	channel chan message
 }
 
@@ -36,7 +38,7 @@ type message struct {
 type chatroom struct {
 	name string
 	topic string
-	users []user
+	users []*user
 	usercnt int
 }
 
@@ -52,11 +54,25 @@ func nick_service(){
 		}
 		if nick_reg[req.nick] == nil {
 			delete(nick_reg, req.usr.nickname)
-			nick_reg[req.nick]=req.usr
-			req.usr.nickname=req.nick
-			req.retchan <- true
-		} else {
-			req.retchan <- false
+			if !req.search{
+				nick_reg[req.nick]=req.usr
+				req.usr.nickname=req.nick
+			}
+			select { //non blocking send success/fail back
+				case req.retchan <- true:
+				default:
+			}
+			if req.search && req.uchan != nil{
+				select { //non blocking send success/fail back
+					case req.uchan <- nick_reg[req.nick]:
+					default:
+				}	
+			}
+		} else { //non blocking send success/fail back
+			select {
+				case req.retchan <- false:
+				default:
+			}
 		}
 	}
 }
@@ -66,13 +82,14 @@ func join_room(name string, u *user) *chatroom{
 	//if the room exists, join it otherwise create it
 	if room_list[name] == nil {
 		cr := chatroom{name: name}
-		cr.users = make([]user,0)
+		cr.users = make([]*user,0)
 		room_list[name]=&cr //save roomlist to map
 		cr.join_room(u)
 	} else {
 		room_list[name].join_room(u)
 	}
-	room := room_list[name]
+	var room *chatroom
+	room = room_list[name]
 	room_mutex.Unlock();
 	return room
 }
@@ -84,7 +101,7 @@ func part_room(name string, u *user){
 }
 
 func (c *chatroom) join_room(u *user){
-	c.users = append(c.users, *u)
+	c.users = append(c.users, u)
 	u.rooms = append(u.rooms, c)
 	fmt.Printf("User #%d joins %s\n", u.id, c.name)
 	c.usercnt++
@@ -231,9 +248,10 @@ func parse_input(line string, usr *user){
 	switch c {
 		case "nick ":
 			if (p1 == "") {break}
+			oldnick := usr.nickname
 			if (change_nick(usr, p1)){
-				m := message {source: &server_src, message: []byte(fmt.Sprintf(":%s!server NICK %s\r\n", usr.nickname, p1))}
-				if usr.nickname!="" { usr.channel <- m }
+				m := message {source: &server_src, message: []byte(fmt.Sprintf(":%s NICK %s\r\n", oldnick, p1))}
+				if true || usr.nickname!="" { usr.channel <- m }
 				for _, x := range usr.rooms {
 					x.send_room(&m)
 				}
@@ -241,7 +259,11 @@ func parse_input(line string, usr *user){
 				server_msg(usr, "433", ":Nickname already in use");
 			}
 		case "privmsg ":
-			send_room(p1, usr, fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, p1, mb))
+			if p1[0] == '#' || p1[0] == '&' {
+				send_room(p1, usr, fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, p1, mb))
+			} else {
+				priv_msg_usr(usr , p1, mb)
+			}
 		case "topic ":
 			room := room_list[p1]
 			if room != nil {
@@ -254,6 +276,7 @@ func parse_input(line string, usr *user){
 				}
 			}
 		case "part ":
+			if len(p1) == 0 { return }
 			if p1[0] != '#' && p1[0] != '&' {p1 = "#" + p1}
 			part_room(p1, usr)
 			usr.channel <- message {source: &server_src, message: []byte(fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))}
@@ -285,10 +308,10 @@ func parse_input(line string, usr *user){
 					nstr = usr.nickname + " " + p1 + " :End of /names list"
 					server_msg(usr, "366",nstr);
 			} else {
-				nstr := " = " + room.name + " :"
+				/*nstr := " = " + room.name + " :"
 				server_msg(usr, "353",nstr);
 				nstr = usr.nickname + " " + p1 + " :End of /names list"
-				server_msg(usr, "366",nstr);
+				server_msg(usr, "366",nstr);*/
 			} 
 		case "who ":
 			room := room_list[p1]
@@ -311,6 +334,7 @@ func parse_input(line string, usr *user){
 			usr.channel <- message {message: []byte(fmt.Sprintf("PONG %s\r\n", p1))}
 			fmt.Printf(">user %d: %s\n",usr.id, fmt.Sprintf("PONG %s\r\n", p1))
 		case "user ":
+			if usr.nickname == "" { return }
 			server_msg(usr, "001","Thanks for connecting!");
 			server_msg(usr, "002","Your host is server.localhost");
 			server_msg(usr, "003","This server was created Fri Apr 11, 2015 at 00:33:00 UTC");
@@ -333,10 +357,28 @@ func parse_input(line string, usr *user){
 	}
 }
 
+func priv_msg_usr(usr *user, nick string, message string){
+	var r nick_req
+	r.nick=nick
+	r.usr = usr
+	r.search = true
+	r.retchan = make (chan bool)
+	r.uchan = make (chan *user)
+	nickserv <- r
+	if <- r.retchan {
+		u := <- r.uchan
+		msg := get_msg()
+		msg.message = []byte(fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, nick, message))
+		msg.source = usr
+		u.channel <- msg 
+	}
+}
+
 func change_nick(usr *user, nick string) bool{
 	var r nick_req
 	r.nick=nick
 	r.usr = usr
+	r.search = false
 	r.retchan = make (chan bool)
 	nickserv <- r
 	return <- r.retchan;
