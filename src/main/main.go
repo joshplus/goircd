@@ -52,26 +52,40 @@ func nick_service(){
 			fmt.Println("Nick service error!")
 			continue
 		}
-		if nick_reg[req.nick] == nil {
-			delete(nick_reg, req.usr.nickname)
-			if !req.search{
+		//name change mode
+		if !req.search {
+			if nick_reg[req.nick] == nil { //only new name changes
+				delete(nick_reg, req.usr.nickname) //remove old name if it exists
 				nick_reg[req.nick]=req.usr
 				req.usr.nickname=req.nick
-			}
-			select { //non blocking send success/fail back
-				case req.retchan <- true:
-				default:
-			}
-			if req.search && req.uchan != nil{
 				select { //non blocking send success/fail back
+					case req.retchan <- true:
+					default:
+				}
+			} else { //non blocking send success/fail back
+				select {
+					case req.retchan <- false:
+					default:
+				}
+			}
+		}
+		//search mode 
+		if req.search {
+			if nick_reg[req.nick] == nil {
+				select {
+					case req.retchan <- false:
+					default:
+				}
+			} else {
+				select {
+					case req.retchan <- true:
+					default:
+				}
+				select {
 					case req.uchan <- nick_reg[req.nick]:
 					default:
-				}	
-			}
-		} else { //non blocking send success/fail back
-			select {
-				case req.retchan <- false:
-				default:
+				}
+
 			}
 		}
 	}
@@ -262,7 +276,7 @@ func parse_input(line string, usr *user){
 			if p1[0] == '#' || p1[0] == '&' {
 				send_room(p1, usr, fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, p1, mb))
 			} else {
-				priv_msg_usr(usr , p1, mb)
+				priv_msg_usr(usr, p1, mb)
 			}
 		case "topic ":
 			room := room_list[p1]
@@ -334,7 +348,8 @@ func parse_input(line string, usr *user){
 			usr.channel <- message {message: []byte(fmt.Sprintf("PONG %s\r\n", p1))}
 			fmt.Printf(">user %d: %s\n",usr.id, fmt.Sprintf("PONG %s\r\n", p1))
 		case "user ":
-			if usr.nickname == "" { return }
+			resetnick := false
+			if usr.nickname == "" { usr.nickname="*"; resetnick=true }
 			server_msg(usr, "001","Thanks for connecting!");
 			server_msg(usr, "002","Your host is server.localhost");
 			server_msg(usr, "003","This server was created Fri Apr 11, 2015 at 00:33:00 UTC");
@@ -344,6 +359,7 @@ func parse_input(line string, usr *user){
 			server_msg(usr, "375","server.localhost Message of the Day");
 			server_msg(usr, "372","My MOTD");
 			server_msg(usr, "376","End of /MOTD");
+			if resetnick { usr.nickname="" }
 		case "pass ":
 			server_msg(usr, "462",":Unauthorized command (already registered)")
 		case "notice ":
@@ -362,15 +378,18 @@ func priv_msg_usr(usr *user, nick string, message string){
 	r.nick=nick
 	r.usr = usr
 	r.search = true
-	r.retchan = make (chan bool)
-	r.uchan = make (chan *user)
+	r.retchan = make (chan bool, 1)
+	r.uchan = make (chan *user, 1)
 	nickserv <- r
 	if <- r.retchan {
 		u := <- r.uchan
+		fmt.Println("User " + nick + " found for u2u private message -> "+u.nickname);
 		msg := get_msg()
 		msg.message = []byte(fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, nick, message))
 		msg.source = usr
 		u.channel <- msg 
+	} else {
+		fmt.Println("User " + nick + " not found for u2u private message :-(");
 	}
 }
 
