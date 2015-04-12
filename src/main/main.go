@@ -72,8 +72,9 @@ func join_room(name string, u *user) *chatroom{
 	} else {
 		room_list[name].join_room(u)
 	}
+	room := room_list[name]
 	room_mutex.Unlock();
-	return room_list[name]
+	return room
 }
 
 func part_room(name string, u *user){
@@ -258,9 +259,13 @@ func parse_input(line string, usr *user){
 			usr.channel <- message {source: &server_src, message: []byte(fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))}
 		case "join ":
 			if p1[0] != '#' && p1[0] != '&' {p1 = "#" + p1}
-			join_room(p1, usr)
+			for _,r := range usr.rooms { //don't join a room twice
+				if r.name == p1 {return}
+			}
+			room := join_room(p1, usr)
 			send_room(p1, usr, fmt.Sprintf(":%s JOIN %s\r\n", usr.nickname, p1))
 			usr.channel <- message {source: &server_src, message: []byte(fmt.Sprintf(":%s JOIN %s\r\n", usr.nickname, p1))}
+			server_msg(usr, "332", p1 + " :" + room.topic)
 			fallthrough
 		case "names ":
 			room := room_list[p1]
