@@ -6,6 +6,7 @@ import (
         "bufio"
         "strings"
         "sync"
+        "os"
 )
 
 var room_list map[string] *chatroom
@@ -27,7 +28,7 @@ type message struct {
 
 type chatroom struct {
 	name string
-	topic []byte
+	topic string
 	users []user
 	usercnt int
 }
@@ -84,6 +85,12 @@ func (c *chatroom) part_room(u *user){
 		delete(room_list,c.name)
 	}
 	room_mutex.Unlock();
+	//send_room(p1, usr, fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))
+	msg := get_msg()
+	msg.dest=*c
+	msg.source = u
+	msg.message = []byte(fmt.Sprintf(":%s PART %s\r\n", u.nickname, c.name))
+	c.send_room(&msg)
 }
 
 func (c *chatroom) send_room(msg *message){
@@ -151,10 +158,11 @@ func handle_conn(conn net.Conn, id int){
 	   go handle_in_conn(&usr, reader)
 	   conn.Write([]byte("NOTICE AUTH :*** Welcome to the server!\r\n"))
        for  {
-      	  	imsg:= <- usr.channel
+      	  	imsg, ok := <- usr.channel
+      	  	if !ok { break }
       	  	_, err := conn.Write(imsg.message)
       	  	_, err2 := conn.Write([]byte("\r\n"))
-      	  	if err != nil || err2 != nil{
+      	  	if err != nil || err2 != nil {
       	  		break
       	  	}
        }		
@@ -176,48 +184,96 @@ func handle_in_conn(usr *user, reader *bufio.Reader) {
 	 //send a message to the conn_hanler to force an error on
 	 //write and a quick disconnection
 	 var msg message
-     msg.message = []byte("I'm not listening any more!")
+     msg.message = []byte("Bye! I'm not listening any more!")
+     defer func() {recover()}() //If someone typed /quit,the channel will be closed so recover to keep from blowing up
      usr.channel <- msg
 }
 
 func parse_input(line string, usr *user){
-	fmt.Printf("USER %d: %s\n",usr.id, line)
+	fmt.Printf("<USER %d: %s\n",usr.id, line)
 	comstr := strings.SplitAfterN(line, " ", 2)
-	if len(comstr) < 2 {
-		usr.channel <- message{message: []byte("Message too short")}
-		return
-	}
 	c := strings.ToLower(comstr[0]) //c == command
-	p1t := strings.SplitAfterN(comstr[1], " ", 2) //param 1
-	p1:=""; mb:=""
+	p1:=""; mb:=""; var p1t, mbt []string //deal with different length arguments
+	if len(comstr) > 1 { p1t = strings.SplitAfterN(comstr[1], " ", 2)} //param 1
 	if len(p1t) > 0 {p1=strings.Trim(strings.Title(p1t[0])," \r\n")}
-	mbt := strings.SplitAfterN(comstr[1], ":", 2) //message body
+	if len(comstr)  > 1 { mbt = strings.SplitAfterN(comstr[1], ":", 2) } //message body
 	if len(mbt) > 1 {mb=mbt[1]}
 	switch c {
 		case "nick ":
-			m := message {message: []byte(fmt.Sprintf(":%s NICK %s\r\n", usr.nickname, p1))}
-			usr.channel <- m
-			for _, x := range usr.rooms {
-				x.send_room(&m)
+			if (p1 != ""){
+				m := message {source: &server_src, message: []byte(fmt.Sprintf(":%s!server NICK %s\r\n", usr.nickname, p1))}
+				if usr.nickname!="" { usr.channel <- m }
+				for _, x := range usr.rooms {
+					x.send_room(&m)
+				}
+				usr.nickname=comstr[1]
 			}
-			usr.nickname=comstr[1]
-		case "join ":
-			join_room(p1, usr)
-			send_room(p1, usr, fmt.Sprintf(":%s JOIN %s\r\n", usr.nickname, p1))
-			usr.channel <- message {message: []byte(fmt.Sprintf(":%s JOIN %s\r\n", usr.nickname, p1))}
 		case "privmsg ":
 			send_room(p1, usr, fmt.Sprintf(":%s PRIVMSG %s :%s\r\n", usr.nickname, p1, mb))
 		case "topic ":
+			room := room_list[p1]
+			if room != nil {
+				room.topic=mb
+				//TOPIC #gobomo :irc client research (foamer2)
+				m := message {source: usr, message: []byte(fmt.Sprintf(":%s TOPIC %s :%s\r\n", usr.nickname, p1, mb))}
+				if usr.nickname!="" { usr.channel <- m }
+				for _, x := range usr.rooms {
+					x.send_room(&m)
+				}
+			}
 		case "part ":
+			if p1[0] != '#' && p1[0] != '&' {p1 = "#" + p1}
 			part_room(p1, usr)
-			send_room(p1, usr, fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))
-			usr.channel <- message {message: []byte(fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))}
+			usr.channel <- message {source: &server_src, message: []byte(fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))}
+		case "join ":
+			if p1[0] != '#' && p1[0] != '&' {p1 = "#" + p1}
+			join_room(p1, usr)
+			send_room(p1, usr, fmt.Sprintf(":%s JOIN %s\r\n", usr.nickname, p1))
+			usr.channel <- message {source: &server_src, message: []byte(fmt.Sprintf(":%s JOIN %s\r\n", usr.nickname, p1))}
+			fallthrough
 		case "names ":
+			room := room_list[p1]
+			if (room != nil){
+					nstr := " = " + room.name + " :"
+					for _, u := range room.users {
+						if (len(nstr) + len(u.nickname) + 2) < 450 { 
+							nstr = nstr + u.nickname + " "
+						} else {
+							server_msg(usr, "353",nstr);
+							nstr = " = " + usr.nickname + " :"
+						}
+					}
+					if (len(nstr) > 0){
+						server_msg(usr, "353",nstr);
+					}
+					nstr = usr.nickname + " " + p1 + " :End of /names list"
+					server_msg(usr, "366",nstr);
+			} else {
+				nstr := " = " + room.name + " :"
+				server_msg(usr, "353",nstr);
+				nstr = usr.nickname + " " + p1 + " :End of /names list"
+				server_msg(usr, "366",nstr);
+			} 
 		case "who ":
-		
-		case "list ":
+			room := room_list[p1]
+			if (room != nil){
+				for _, u := range room.users {
+					server_msg(usr, "352",room.name + " " + u.nickname + " example.net server " + u.nickname +  " Hx :0 " + u.nickname);
+				}
+				server_msg(usr, "315", room.name + " :End of /WHO list");
+			}
+		case "list ", "list":
+			rl:=room_list
+			server_msg(usr, "321", "Channel :Users  Name");
+			for _, room := range rl{
+				nstr := fmt.Sprintf("%s %d :%s", room.name, len(room.users), room.topic) 
+				server_msg(usr, "322", nstr);
+			}
+			server_msg(usr, "323", " :End of /LIST");
+			
 		case "ping ":
 			usr.channel <- message {message: []byte(fmt.Sprintf("PONG %s\r\n", p1))}
+			fmt.Printf(">user %d: %s\n",usr.id, fmt.Sprintf("PONG %s\r\n", p1))
 		case "user ":
 			server_msg(usr, "001","Thanks for connecting!");
 			server_msg(usr, "002","Your host is server.localhost");
@@ -232,6 +288,10 @@ func parse_input(line string, usr *user){
 			server_msg(usr, "462",":Unauthorized command (already registered)")
 		case "notice ":
 			send_room(p1, usr, fmt.Sprintf(":%s NOTICE %s :%s\r\n", usr.nickname, p1, mb))
+		case "explode ": 
+			if p1 == "Please" { os.Exit(0) }
+		case "quit ":
+			close(usr.channel)
 		default: 
 			fmt.Printf("Don't know what to do with %s from '%s'\n", c, line)
 	}
@@ -239,14 +299,15 @@ func parse_input(line string, usr *user){
 
 func server_msg(usr *user, code string, message string){
 	mb:=fmt.Sprintf(":server %s %s %s", code, usr.nickname, message)
+	fmt.Printf(">user %d: %s\n",usr.id, mb)
 	msg := get_msg()
 	msg.message=[]byte(mb)
 	usr.channel <- msg
 }
 
 func part_all(usr *user){
-	fmt.Printf("User #%d (in %d rooms) has disconnected!\n",usr.id, len(usr.rooms));
 	for _, r := range usr.rooms {
+		fmt.Println(usr.nickname + " leaving " + r.name);
 		r.part_room(usr)
 	}
 }

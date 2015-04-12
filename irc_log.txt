@@ -1,3 +1,40 @@
+nick foamer2
+:FractalRealities.US.AfterNET.Org 433 * foamer2 :Nickname is already in use.
+
+:FractalRealities.US.AfterNET.Org 321 foamer3 Channel :Users  Name
+:FractalRealities.US.AfterNET.Org 322 foamer3 #gamers 6 :Stuff about games and the people who play them. Read rules at:- http://ideone.com/Bfzxsh [ ibutsu is the Fartriarch ]
+:FractalRealities.US.AfterNET.Org 322 foamer3 #Arequipa 8 :Welcome to #Arequipa ciudad blanca del Peru | aqui las chicas son muy lindas bombomcitas de ricas curvas muy apretaditas | chat amistad general Unete que esperas !!.
+:FractalRealities.US.AfterNET.Org 322 foamer3 #avpd 11 :A chat for AVPD - Avoidant Personality Disorder, Severe Social Anxiety, Depression, Mental Illness and Those who don't belong
+:FractalRealities.US.AfterNET.Org 323 foamer3 :End of /LIST
+
+
+
+:josh!josh@AN-62B7754E.dc.dc.cox.net MODE josh +x
+join #linux
+:josh!josh@AN-62B7754E.dc.dc.cox.net JOIN #linux
+:FractalRealities.US.AfterNET.Org 332 josh #linux :Not just Linux - Tech discussions with all OS & Hardware - We are glad to help if you WAIT. - Don't ask to ask, just ask
+:FractalRealities.US.AfterNET.Org 333 josh #linux X3 1399061104
+:FractalRealities.US.AfterNET.Org 353 josh = #linux :josh ZeeK FLHerne daniel @ps dewar voiceofgrog Draconicus Defaultti @Flash scrollback +Jordan discopig @johndrinkwater adam @voice Ender Syfaro Harvey dustinm` @Rubin @ibutsu blacklist3d @rdrake @JC_Denton @gholms @that_guy @Jobe @Omnipotent @X3 Doomtec Pit emmflo KindOne dcraig supr ThunderWolf Gatewayy
+:FractalRealities.US.AfterNET.Org 366 josh #linux :End of /NAMES list.
+quit
+
+
+
+JOIN #gobomo
+:foamer123!foamer123@AN-62B7754E.dc.dc.cox.net JOIN #gobomo
+:Montreal.CA.AfterNET.Org 353 foamer123 = #gobomo :foamer123 @joshyouahh
+:Montreal.CA.AfterNET.Org 366 foamer123 #gobomo :End of /NAMES list.
+NAMES #gobomo
+:Montreal.CA.AfterNET.Org 353 foamer123 = #gobomo :foamer123 @joshyouahh
+:Montreal.CA.AfterNET.Org 366 foamer123 #gobomo :End of /NAMES list.
+
+WHO #gobomo
+:Montreal.CA.AfterNET.Org 352 foamer123 #gobomo foamer123 AN-62B7754E.dc.dc.cox.net *.afternet.org foamer123 Hx :0 foarmer123
+:server                   352 joshyouahh #Rob joshyouahh ???.???.net server joshyouahh Hx :0 joshyouahh
+:Montreal.CA.AfterNET.Org 352 foamer123 #gobomo josh AN-62B7754E.dc.dc.cox.net *.afternet.org joshyouahh H@x :3 Josh 
+:Montreal.CA.AfterNET.Org 315 foamer123 #gobomo :End of /WHO list.
+
+
 
 Trying 199.189.86.110...
 Connected to irc.rr.afternet.org.
