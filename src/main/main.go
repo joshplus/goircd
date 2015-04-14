@@ -7,6 +7,7 @@ import (
         "strings"
         "sync"
         "os"
+	"math/rand"
 )
 
 var room_list map[string] *chatroom
@@ -214,6 +215,7 @@ func handle_conn(conn net.Conn, id int){
        usr.nickname=""
        usr.channel = make(chan message, 25)
        defer part_all(&usr)
+       for !change_nick(&usr,randNick()) {}
        fmt.Println("Got connection #", id);
        reader := bufio.NewReader(conn)
 	   go handle_in_conn(&usr, reader)
@@ -416,6 +418,16 @@ func part_all(usr *user){
 		fmt.Println(usr.nickname + " leaving " + r.name);
 		r.part_room(usr)
 	}
+}
+
+func randNick() string{
+	var chars = []rune("abcdefghijklmnopqrstuvwxyz1234567890-");
+	nick:="user-"
+	b := make([]rune, 6)
+	for i:= range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return nick+string(b)
 }
 
 func checkError(err error) {
