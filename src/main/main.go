@@ -10,44 +10,58 @@ import (
 	"math/rand"
 )
 
+//chatroom list and its associated mutex
 var room_list map[string] *chatroom
-var room_mutex sync.Mutex
+var room_mutex sync.RWMutex
+
+
+//source that is used in message structs whenever the server sends a message 
+//itself such as when sending an error message
 var server_src user
+
+//nickname service global channels
 var nickserv chan nick_req
 
+//nickname service request 
 type nick_req struct{
 	nick string
 	usr *user
 	retchan chan bool
 	uchan chan *user
-	search bool
+	search bool //true=look for this nickname; false=set user's nickname to this
 }
 
+//Represents a connected user
 type user struct{
-	nickname string
-	id int
+	nickname string //nickname of user (displayed to other users and in chat rooms)
+	id int //sequential connection ID - used in a few places to compare users. Could probably be replaced
 	rooms []*chatroom 
 	channel chan message
 }
 
+//message - this is what a user sends to a chatroom and what the chatroom sends to the user
+//The byte slice is the message body sent to the user
 type message struct {
 	dest chatroom
 	source *user
-	message []byte	
+	message []byte	//Byte slices because the RFC says that a message is a sequence of up to 512 bytes terminated by \r\n
 }
 
+//chatroom - stores the information needed for a chatroom in IRC - a name, topic and list of users
 type chatroom struct {
 	name string
 	topic string
 	users []*user
-	usercnt int
+	usercnt int //this is just used for error checking in the code. Could be removed
 }
 
+//Nickname service - this is used as a go routine
 func nick_service(){
-	var nick_reg map[string] *user
-	nickserv = make (chan nick_req, 0)
+	var nick_reg map[string] *user //map to store nickname information
+	nickserv = make (chan nick_req, 0) //global  
 	nick_reg = make (map[string] *user)
 	for {
+		//read from nickserv channel. If there is an error, continue and keep running the nick service. 
 		req, ok := <- nickserv
 		if !ok {
 			fmt.Println("Nick service error!")
@@ -72,12 +86,12 @@ func nick_service(){
 		}
 		//search mode 
 		if req.search {
-			if nick_reg[req.nick] == nil {
+			if nick_reg[req.nick] == nil { //nickname not found
 				select {
 					case req.retchan <- false:
 					default:
 				}
-			} else {
+			} else { //nickname found, return the user struct
 				select {
 					case req.retchan <- true:
 					default:
@@ -92,29 +106,33 @@ func nick_service(){
 	}
 }
 
+//add a user to a chatroom. name is the name of the chatroom provided by the user, u
 func join_room(name string, u *user) *chatroom{
-	room_mutex.Lock();
+	room_mutex.Lock(); //must lock during this function because maps are not threadsafe
 	//if the room exists, join it otherwise create it
 	if room_list[name] == nil {
 		cr := chatroom{name: name}
 		cr.users = make([]*user,0)
 		room_list[name]=&cr //save roomlist to map
-		cr.join_room(u)
+		cr.join_room(u) //call the join_room method in the chatroom's struct
 	} else {
-		room_list[name].join_room(u)
+		room_list[name].join_room(u) //call the join_room method in the chatroom's struct
 	}
-	var room *chatroom
+	var room *chatroom  //save the chatroom to return it
 	room = room_list[name]
 	room_mutex.Unlock();
 	return room
 }
 
+//Have user, u, leave a chatroom called name
 func part_room(name string, u *user){
 	if room_list[name] != nil{
-		room_list[name].part_room(u)
+		room_list[name].part_room(u) //the mutex operation is called from within the chatroom part_room function
 	}
 }
 
+//attach a join room function to the chatroom struct
+//just some appends and some debugging output
 func (c *chatroom) join_room(u *user){
 	c.users = append(c.users, u)
 	u.rooms = append(u.rooms, c)
@@ -123,10 +141,12 @@ func (c *chatroom) join_room(u *user){
 	fmt.Println("We now have", c.usercnt, "users in", c.name ,"with an slice of size", len(c.users))
 }
 
+//attach a part room function to the chatroom struct
 func (c *chatroom) part_room(u *user){
-	//may need a mutex
+	//i = the user's position in the chatroom; j = the chatroom's position in the user's list
 	var i, j int
 	room_mutex.Lock();
+	//locate the user and chatroom
 	for i=0; i<=len(c.users); i++ {
 		if c.users[i].id == u.id { break }
 	}
@@ -138,15 +158,16 @@ func (c *chatroom) part_room(u *user){
 		return
 	}
 	fmt.Printf("User #%d departs %s\n", u.id, c.name)
-	
+	//re-create the user and room slices without the room, user respectively
 	c.users = append(c.users[:i], c.users[i+1:]...)
 	u.rooms = append(u.rooms[:j], u.rooms[j+1:]...)
 	c.usercnt--;
+	//clean up stale rooms
 	if c.usercnt == 0 {
 		delete(room_list,c.name)
 	}
 	room_mutex.Unlock();
-	//send_room(p1, usr, fmt.Sprintf(":%s PART %s\r\n", usr.nickname, p1))
+	//notify users in the chatroom that the user has parted
 	msg := get_msg()
 	msg.dest=*c
 	msg.source = u
@@ -154,39 +175,61 @@ func (c *chatroom) part_room(u *user){
 	c.send_room(&msg)
 }
 
+//send a message to each user in a room
 func (c *chatroom) send_room(msg *message){
 		fmt.Printf("%s(%d): %s\n", c.name, msg.source.id,string(msg.message))
+		//this is not threadsafe however, it is not really a problem to deliver a message to a user
+		//who has concurrently left a room or to not send a message to a user who has concurrently
+		//joined a room. 
 		for _, usr := range c.users {
 			if usr.id != msg.source.id {
-				select {
+				select { //this is non-blocking to deal with users that disconnect from the server concurrently
 					case usr.channel <- *msg:
 					default:
 				}
 			}
 		}
 }
+
+/* This function shouldn't be necessary 
+ * I ran in to some cases where I couldn't create an msg struct but I couldn't figure out why
+ * this creates msg structs for me to get around that problem. 
+ * You can see an example in send_room()
+ */
 func get_msg() message{
 	var msg message;
 	return msg;
 }
+
+/* 
+ * Send a message to every user in a given room
+ * Because this requires reading from a mutex-locked 
+ */
 func send_room(room string, usr *user, message string) {
-	room_mutex.Lock()
-	rl := room_list //make a local copy to be threadsafe
-	room_mutex.Unlock()
-	if rl[room] == nil {
+	room_mutex.RLock()
+	rl := room_list[room] 
+	room_mutex.RUnlock();
+	if rl == nil {
 		fmt.Printf("Bad news, You asked me to post to '%s' but I have no idea what it is!\n",room)
 		return 
 	}
+	//Make a message including casting the string to a byte array and send it to each user
 	msg := get_msg()
 	msg.source=usr
-	msg.dest=*rl[room]
+	msg.dest=*rl
 	msg.message = []byte(message)
-	rl[room].send_room(&msg)
+	rl.send_room(&msg)
 }
 
+/* The main function! 
+ * kicks off the program by doing some initializations and starting the network listener
+ */
 func main() {
-		room_list = make(map[string] *chatroom)
+		//initialize the roomlist and start the nickname service
+		room_list = make(map[string] *chatroom) 
 		go nick_service()
+		
+		//start listening over the network
 		server_src = user{nickname: "server.localhost", id: -1, channel: make (chan message)}
 		service := "0.0.0.0:6000"
         tcpAddr, err := net.ResolveTCPAddr("tcp", service)
@@ -194,6 +237,7 @@ func main() {
         listener, err := net.ListenTCP("tcp", tcpAddr)
         checkError(err)
         fmt.Println("Server listerning")
+        //For each new connection, create a handler and set a new, higher ID
         for  id:=0; true; id++ {
                 conn, err := listener.Accept()
                 if err == nil {
@@ -400,7 +444,7 @@ func change_nick(usr *user, nick string) bool{
 	r.nick=nick
 	r.usr = usr
 	r.search = false
-	r.retchan = make (chan bool)
+	r.retchan = make (chan bool, 1)
 	nickserv <- r
 	return <- r.retchan;
 }
