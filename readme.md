@@ -41,3 +41,9 @@ Of course, this doesn't do everything an IRC server needs to so there should be 
 The parser is wrtting in one big, ugly function. It could really use some additional work and should be split into different functions.
 
 The code is all sitting in the "Main" package since this is wrtten as an execuatble. It'd be great to break the parts of this out into a package so that it could be imported. The parser could even be written to be reusable between user and server if one wanted to. 
+
+## License & The Author
+
+This code was written by Josh Abraham. You are free to use it on your own system and contribute. If you wish to use it commercially, please contact me. Once I'm over the shock, I'll be glad to talk to you!
+
+I'll add a license to this at some point in the near future.
